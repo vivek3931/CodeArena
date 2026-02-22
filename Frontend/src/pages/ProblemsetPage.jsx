@@ -83,6 +83,7 @@ const ProblemsetPage = () => {
         setPage(1);
     };
 
+    const categories = ['All', ...Array.from(new Set(problems.map(p => p.category))).sort()];
     const SortIcon = ({ col }) => {
         if (sortBy !== col) return <ArrowUpDown size={13} className="ml-1 opacity-30" />;
         return order === 'asc'

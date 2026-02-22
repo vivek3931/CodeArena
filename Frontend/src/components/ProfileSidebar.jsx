@@ -78,6 +78,7 @@ const ProfileSidebar = ({ user, onProfileUpdate }) => {
                     <div className="relative mb-4">
                         <div className="w-28 h-28 rounded-full border-4 border-[#333] shadow-inner overflow-hidden bg-gradient-to-b from-[#553621] to-[#25150a] flex items-center justify-center text-3xl font-bold text-[var(--color-primary)] uppercase">
                             {(editing ? form.name : user?.name) ? (editing ? form.name : user?.name).charAt(0) : user?.email?.charAt(0)}
+                            {(editing ? form.name : user?.name) ? (editing ? form.name : user?.name).charAt(0) : user?.email?.charAt(0)}
                         </div>
                         <div className="absolute bottom-1 right-2 w-4 h-4 rounded-full bg-green-500 border-2 border-[var(--color-dark-surface)]"></div>
                     </div>

@@ -1,4 +1,4 @@
-import { Swords } from "lucide-react";
+
 
 const footerLinks = {
     Docs: [
@@ -28,9 +28,8 @@ export default function HomepageFooter() {
 
             <section className="max-w-screen-xl mx-auto py-20 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-6 gap-x-12 gap-y-8 px-6">
                 <div className="col-span-full xl:col-span-2 flex justify-center">
-                    <a href="#" className="font-bold text-xl flex items-center text-white">
-                        <Swords size={24} className="text-osu" />
-                        <span className="ml-2">CodeArena</span>
+                    <a href="#" className="flex items-center">
+                        <img src="/code-arena_logo.png" alt="CodeArena" className="h-16 w-auto" />
                     </a>
                 </div>
 

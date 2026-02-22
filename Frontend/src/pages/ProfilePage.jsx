@@ -80,6 +80,10 @@ const ProfilePage = () => {
 
     if (!userData || !userStats) return null;
 
+    const handleProfileUpdate = (updatedUser) => {
+        setUserData(updatedUser);
+    };
+
     return (
         <div className="flex-1 overflow-y-auto overflow-x-hidden w-full max-w-8xl mx-auto px-4 py-8 flex flex-col md:flex-row gap-6 custom-scrollbar text-sm">
 
