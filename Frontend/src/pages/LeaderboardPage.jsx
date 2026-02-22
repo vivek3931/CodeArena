@@ -216,10 +216,10 @@ const LeaderboardPage = () => {
                                 <tr>
                                     <th className="px-6 py-4 font-bold">Rank</th>
                                     <th className="px-6 py-4 font-bold w-1/3">Contestant</th>
-                                    <th className="px-6 py-4 font-bold text-center">Score</th>
+                                    <th className="px-6 py-4 font-bold text-center">Points</th>
                                     <th className="px-6 py-4 font-bold text-center">Attempts</th>
                                     <th className="px-6 py-4 font-bold text-center">Accept %</th>
-                                    <th className="px-6 py-4 font-bold text-center">Rating</th>
+                                    <th className="px-6 py-4 font-bold text-center">Solved</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-[#2d1e16] text-sm">
@@ -264,7 +264,7 @@ const LeaderboardPage = () => {
                                                 </div>
                                             </td>
                                             <td className={`px-6 py-5 font-bold text-center text-lg ${isCurrent ? 'text-[var(--color-primary)]' : 'text-white'}`}>
-                                                {user.solved}
+                                                {user.rating || 0}
                                             </td>
                                             <td className="px-6 py-5 text-gray-400 text-center">
                                                 {user.totalAttempts}
@@ -275,7 +275,7 @@ const LeaderboardPage = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-5 text-gray-300 text-center font-medium">
-                                                {user.rating || 0}
+                                                {user.solved}
                                             </td>
                                         </tr>
                                     );

@@ -11,7 +11,10 @@ const ContestsPage = () => {
     useEffect(() => {
         const fetchContests = async () => {
             try {
-                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/contests`);
+                const token = localStorage.getItem('token');
+                const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/api/contests`, { headers });
                 if (res.ok) {
                     const data = await res.json();
                     setContests(data);
@@ -249,9 +252,18 @@ const ContestsPage = () => {
                                         <p className="text-xs text-gray-500 mb-4">By {contest.companyId?.name || "CodeArena Official"}</p>
 
                                         {/* Description */}
-                                        <p className="text-sm text-gray-400 mb-5 flex-1 line-clamp-2 leading-relaxed">
-                                            {contest.description}
-                                        </p>
+                                        <div className="mb-5 flex-1">
+                                            {contest.strictValidation && status !== 'ended' ? (
+                                                <p className="text-xs italic text-gray-500 flex items-center gap-1.5 p-2 bg-[#120a06] border border-[#2d1e16] rounded-lg">
+                                                    <ShieldAlert size={12} className="text-red-500" />
+                                                    Description hidden for strict contests.
+                                                </p>
+                                            ) : (
+                                                <p className="text-sm text-gray-400 line-clamp-2 leading-relaxed">
+                                                    {contest.description}
+                                                </p>
+                                            )}
+                                        </div>
 
                                         {/* Strict Warning */}
                                         {contest.strictValidation && (
@@ -284,6 +296,14 @@ const ContestsPage = () => {
                                                         <Sparkles size={13} className="text-gray-500" />
                                                         {contest.problems.length} {contest.problems.length === 1 ? 'problem' : 'problems'}
                                                     </div>
+                                                    <div className="w-[1px] h-3 bg-[#2d1e16]"></div>
+                                                    <div className="flex items-center gap-1.5 text-[var(--color-primary)] font-bold">
+                                                        <Trophy size={13} />
+                                                        {contest.problems.reduce((sum, p) => {
+                                                            const pts = p.difficulty === 'Easy' ? 250 : p.difficulty === 'Hard' ? 650 : 400;
+                                                            return sum + pts;
+                                                        }, 0).toLocaleString()} pts
+                                                    </div>
                                                 </>
                                             )}
                                         </div>
@@ -294,7 +314,15 @@ const ContestsPage = () => {
                                         )}
 
                                         {/* Action Button */}
-                                        {status === 'live' ? (
+                                        {contest.isDisqualified ? (
+                                            <button
+                                                disabled
+                                                className="w-full py-3 bg-red-500/10 text-red-500 font-bold rounded-lg transition-all flex items-center justify-center gap-2 border border-red-500/20 cursor-not-allowed"
+                                                title="You have been removed from this contest due to illegal activities"
+                                            >
+                                                <ShieldAlert size={16} /> Disqualified - Access Revoked
+                                            </button>
+                                        ) : status === 'live' ? (
                                             <button
                                                 onClick={() => navigate(`/workspace/contest/${contest._id}`)}
                                                 className="w-full py-3 bg-green-500/10 text-green-500 hover:bg-green-500 hover:text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 border border-green-500/20 hover:border-green-500"

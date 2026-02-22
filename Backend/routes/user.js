@@ -22,12 +22,54 @@ router.get('/profile', protect, async (req, res) => {
                 github: req.user.github,
                 role: req.user.role,
                 rating: req.user.rating,
+                badges: req.user.badges || [],
                 createdAt: req.user.createdAt
             });
         }
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: 'Server error fetching profile' });
+    }
+});
+
+// @desc    Update user profile data
+// @route   PUT /api/user/profile
+// @access  Private
+router.put('/profile', protect, async (req, res) => {
+    try {
+        const user = req.user;
+        // Only allow safe fields to be updated
+        const allowedFields = ['name', 'bio', 'location', 'github'];
+        const updates = {};
+
+        allowedFields.forEach(field => {
+            if (req.body[field] !== undefined) {
+                updates[field] = req.body[field];
+            }
+        });
+
+        const updatedUser = await user.constructor.findByIdAndUpdate(
+            user._id,
+            { $set: updates },
+            { new: true, runValidators: true }
+        );
+
+        // Also update localStorage user on the client by returning full profile
+        res.status(200).json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            preference: updatedUser.preference,
+            bio: updatedUser.bio,
+            location: updatedUser.location,
+            github: updatedUser.github,
+            role: updatedUser.role,
+            rating: updatedUser.rating,
+            createdAt: updatedUser.createdAt
+        });
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({ message: 'Server error updating profile' });
     }
 });
 
@@ -122,6 +164,16 @@ router.get('/profile/stats', protect, async (req, res) => {
             }
         }
 
+        // Total active days = unique days with at least one submission
+        const totalActiveDays = dateKeys.length;
+
+        // Recent points earned (last 7 days)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        const recentPoints = submissions
+            .filter(s => s.status === 'Accepted' && new Date(s.createdAt) >= sevenDaysAgo)
+            .reduce((sum, s) => sum + (s.points || 0), 0);
+
         // Format recent submissions
         const recentSubmissions = submissions.slice(0, 10).map(sub => ({
             _id: sub._id,
@@ -130,6 +182,7 @@ router.get('/profile/stats', protect, async (req, res) => {
             difficulty: sub.problem ? sub.problem.difficulty : 'Medium',
             language: sub.language,
             status: sub.status,
+            points: sub.points || 0,
             createdAt: sub.createdAt
         }));
 
@@ -140,7 +193,9 @@ router.get('/profile/stats', protect, async (req, res) => {
             heatmap: heatmapMap,
             recentSubmissions,
             currentStreak,
-            maxStreak
+            maxStreak,
+            totalActiveDays,
+            recentPoints
         });
 
     } catch (error) {

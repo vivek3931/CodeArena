@@ -5,7 +5,7 @@ const ProfileMiddleContent = ({ user, stats }) => {
     // Generate real heatmap based on stats.heatmap
     const today = new Date();
     const heatmapGrid = [];
-    let totalActiveDays = Object.keys(stats.heatmap).length;
+    const totalActiveDays = stats?.totalActiveDays || Object.keys(stats.heatmap).length;
 
     for (let c = 0; c < 52; c++) {
         const col = [];
@@ -32,7 +32,7 @@ const ProfileMiddleContent = ({ user, stats }) => {
     const pseudoRank = isUnranked ? 'Unranked' : Math.max(1, 15000 - (stats.totalSolved * 50));
     const currentStreak = stats?.currentStreak || 0;
     const maxStreak = stats?.maxStreak || 0;
-    const recentGain = stats.recentSubmissions.length > 0 ? (stats.recentSubmissions.length * 3) : 0;
+    const recentGain = stats?.recentPoints || 0;
 
     return (
         <div className="flex flex-col gap-6 w-full min-w-0">

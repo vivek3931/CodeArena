@@ -38,7 +38,15 @@ const userSchema = new mongoose.Schema({
     rating: {
         type: Number,
         default: 0
-    }
+    },
+    badges: [{
+        id: { type: String, required: true },
+        name: { type: String, required: true },
+        icon: { type: String, required: true },
+        img: { type: String },
+        description: { type: String },
+        earnedAt: { type: Date, default: Date.now }
+    }]
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

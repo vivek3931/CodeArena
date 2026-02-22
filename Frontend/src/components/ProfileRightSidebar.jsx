@@ -1,5 +1,5 @@
 import React from 'react';
-import { Award, Code2, Lock } from 'lucide-react';
+import { Code2 } from 'lucide-react';
 
 const ProfileRightSidebar = ({ stats }) => {
     const totalSolved = stats?.totalSolved || 0;
@@ -16,8 +16,6 @@ const ProfileRightSidebar = ({ stats }) => {
         .sort((a, b) => b.count - a.count);
 
     const totalLangSubmissions = sortedLangs.reduce((acc, curr) => acc + curr.count, 0);
-    const unlockedBadges = Math.min(6, Math.floor(totalSolved / 2) + (hardCount > 0 ? 1 : 0));
-    const lockedBadges = Math.max(0, 8 - unlockedBadges);
 
     return (
         <div className="flex flex-col gap-6 w-full min-w-0">
@@ -117,34 +115,6 @@ const ProfileRightSidebar = ({ stats }) => {
                             <div className="h-full bg-red-500 rounded-full transition-all duration-1000" style={{ width: getWidth(hardCount) }}></div>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {/* Badges Card */}
-            <div className="bg-[var(--color-dark-surface)] border border-[var(--color-dark-border)] rounded-xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-white font-bold">Badges</h3>
-                    <span className="text-xs text-gray-500 font-medium">{unlockedBadges} Unlocked</span>
-                </div>
-
-                <div className="grid grid-cols-4 gap-2">
-                    {/* Unlocked Badges */}
-                    {[...Array(unlockedBadges)].map((_, i) => (
-                        <div key={i} className="aspect-square bg-[#2a2a2a] rounded-lg border border-[var(--color-dark-border)] flex items-center justify-center hover:border-gray-500 transition-colors cursor-pointer group">
-                            <Award size={24} className="text-gray-400 group-hover:text-[var(--color-primary)] transition-colors" />
-                        </div>
-                    ))}
-                    {/* Locked Badges */}
-                    {[...Array(lockedBadges > 4 ? 3 : lockedBadges)].map((_, i) => (
-                        <div key={`lock-${i}`} className="aspect-square bg-[#1a1a1a] rounded-lg border border-[#222] border-dashed flex items-center justify-center opacity-50">
-                            <Lock size={16} className="text-gray-600" />
-                        </div>
-                    ))}
-                    {lockedBadges > 4 && (
-                        <div className="aspect-square bg-[#1a1a1a] rounded-lg border border-[#222] border-dashed flex items-center justify-center text-xs text-gray-500 font-semibold">
-                            +{lockedBadges - 3}
-                        </div>
-                    )}
                 </div>
             </div>
 

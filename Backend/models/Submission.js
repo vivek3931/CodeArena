@@ -26,6 +26,10 @@ const submissionSchema = new mongoose.Schema({
     },
     message: {
         type: String
+    },
+    points: {
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 

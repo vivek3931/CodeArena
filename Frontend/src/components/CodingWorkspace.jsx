@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
-import { Timer, AlertCircle, ScanFace } from 'lucide-react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Timer, AlertCircle, ScanFace, Trophy } from 'lucide-react';
 import ProblemDescription from './ProblemDescription';
 import CodeEditorPane from './CodeEditorPane';
 import ConsoleTestCasePane from './ConsoleTestCasePane';
@@ -8,6 +8,7 @@ import FaceRecognition from './FaceRecognition';
 
 const CodingWorkspace = () => {
     const { problemId, contestId } = useParams();
+    const navigate = useNavigate();
     const [problem, setProblem] = useState(null);
     const [contest, setContest] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -28,6 +29,10 @@ const CodingWorkspace = () => {
     const [showWarningOverlay, setShowWarningOverlay] = useState(false);
     const [violationMsg, setViolationMsg] = useState('');
     const [preContestAccepted, setPreContestAccepted] = useState(false);
+
+    // Final Contest Summary Modal
+    const [showContestSummary, setShowContestSummary] = useState(false);
+    const [contestFinalPoints, setContestFinalPoints] = useState(0);
 
     // Pre-Contest Setup States
     const [preContestFaceVerified, setPreContestFaceVerified] = useState(false);
@@ -104,18 +109,36 @@ const CodingWorkspace = () => {
     useEffect(() => {
         const fetchWorkspaceData = async () => {
             try {
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    navigate('/auth');
+                    return;
+                }
+
+                const headers = { 'Authorization': `Bearer ${token}` };
+
                 // Fetch Problem Data
                 if (problemId) {
-                    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/problems/${problemId}`);
+                    const res = await fetch(`${import.meta.env.VITE_API_URL}/api/problems/${problemId}`, { headers });
                     if (res.ok) setProblem(await res.json());
                 }
 
                 // Fetch Contest Data if in contest mode
                 if (contestId) {
-                    const cres = await fetch(`${import.meta.env.VITE_API_URL}/api/contests/${contestId}`);
+                    const cres = await fetch(`${import.meta.env.VITE_API_URL}/api/contests/${contestId}`, { headers });
                     if (cres.ok) {
                         const cdata = await cres.json();
                         setContest(cdata);
+                    }
+
+                    // Check if disqualified
+                    const pres = await fetch(`${import.meta.env.VITE_API_URL}/api/contests/${contestId}/progress`, { headers });
+                    if (pres.ok) {
+                        const pdata = await pres.json();
+                        if (pdata.isDisqualified) {
+                            navigate('/contests', { state: { error: 'You have been disqualified from this contest due to cheating strikes.' } });
+                            return;
+                        }
                     }
                 }
             } catch (error) {
@@ -125,20 +148,20 @@ const CodingWorkspace = () => {
             }
         };
         fetchWorkspaceData();
-    }, [problemId, contestId]);
+    }, [problemId, contestId, navigate]);
 
     // Timer Logic for Contests
     useEffect(() => {
-        if (!contest) return;
+        if (!contest || !contest.endTime) return;
 
-        const interval = setInterval(() => {
+        const updateGlobalTimer = () => {
+            const end = new Date(contest.endTime).getTime();
             const now = new Date().getTime();
-            const distance = new Date(contest.endTime).getTime() - now;
+            const distance = end - now;
 
-            if (distance < 0) {
-                clearInterval(interval);
+            if (distance <= 0) {
                 setTimeLeft("CONTEST ENDED");
-                return;
+                return true;
             }
 
             const h = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -146,6 +169,14 @@ const CodingWorkspace = () => {
             const s = Math.floor((distance % (1000 * 60)) / 1000);
 
             setTimeLeft(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+            return false;
+        };
+
+        const isEnded = updateGlobalTimer();
+        if (isEnded) return;
+
+        const interval = setInterval(() => {
+            if (updateGlobalTimer()) clearInterval(interval);
         }, 1000);
 
         return () => clearInterval(interval);
@@ -156,7 +187,10 @@ const CodingWorkspace = () => {
         if (!problem || !contest || !problem.timeLimit || problem.timeLimit === 0) return;
 
         // Wait for strict validation acceptance before starting local problem timer
-        if (contest.strictValidation && !preContestAccepted) return;
+        if (contest.strictValidation && !preContestAccepted) {
+            setLocalTimeLeft(`${String(problem.timeLimit).padStart(2, '0')}:00`);
+            return;
+        }
 
         const storageKey = `codearena_timer_${contest._id}_${problem._id}`;
         let startedAt = localStorage.getItem(storageKey);
@@ -167,25 +201,32 @@ const CodingWorkspace = () => {
 
         const limitMs = problem.timeLimit * 60 * 1000;
 
-        const interval = setInterval(() => {
+        const updateLocalTimer = () => {
             const now = new Date().getTime();
             const elapsed = now - parseInt(startedAt, 10);
             const remaining = limitMs - elapsed;
 
             if (remaining <= 0) {
-                clearInterval(interval);
                 setLocalTimeLeft("00:00:00");
                 setLocalIsEnded(true);
-                return;
+                return true;
             }
 
             const m = Math.floor(remaining / (1000 * 60));
             const s = Math.floor((remaining % (1000 * 60)) / 1000);
             setLocalTimeLeft(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+            return false;
+        };
+
+        const isEnded = updateLocalTimer();
+        if (isEnded) return;
+
+        const interval = setInterval(() => {
+            if (updateLocalTimer()) clearInterval(interval);
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [problem, contest]);
+    }, [problem, contest, preContestAccepted]);
 
     // Anti-Cheat: Tab Switching / Screen Freezing Detection
     useEffect(() => {
@@ -303,6 +344,15 @@ const CodingWorkspace = () => {
             if (newStrikes >= 3) {
                 setIsCheatingLocked(true);
                 setShowWarningOverlay(false); // Hide warning, show permanent lock
+
+                // Call backend to permanently disqualify
+                if (contestId) {
+                    const token = localStorage.getItem('token');
+                    fetch(`${import.meta.env.VITE_API_URL}/api/contests/${contestId}/disqualify`, {
+                        method: 'POST',
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }).catch(console.error);
+                }
             } else {
                 setShowWarningOverlay(true);
             }
@@ -419,6 +469,11 @@ const CodingWorkspace = () => {
                                     testCases={problem?.testCases || []}
                                     code={code}
                                     problemId={problem?._id}
+                                    contestId={contestId}
+                                    onFinishContest={(points) => {
+                                        setContestFinalPoints(points);
+                                        setShowContestSummary(true);
+                                    }}
                                     isLoading={loading}
                                     wrongAttempts={wrongAttempts}
                                     setWrongAttempts={setWrongAttempts}
@@ -564,6 +619,40 @@ const CodingWorkspace = () => {
                     >
                         Exit Workspace
                     </button>
+                </div>
+            )}
+
+            {/* Final Contest Summary Modal */}
+            {showContestSummary && (
+                <div className="fixed inset-0 z-[300] bg-black/95 flex flex-col items-center justify-center p-4 backdrop-blur-md">
+                    <div className="bg-[#1a1310] border border-green-500/30 rounded-2xl p-8 max-w-lg w-full shadow-[0_0_50px_rgba(34,197,94,0.15)] relative overflow-hidden flex flex-col items-center text-center">
+                        <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-green-500 to-transparent opacity-80"></div>
+
+                        <div className="w-20 h-20 bg-green-500/10 rounded-full flex items-center justify-center border border-green-500/30 text-green-500 mb-6 shadow-[0_0_30px_rgba(34,197,94,0.2)]">
+                            <Trophy size={40} className="animate-bounce" />
+                        </div>
+
+                        <h2 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2 uppercase">Contest Complete!</h2>
+                        <p className="text-gray-400 mb-8">You successfully solved all problems in this contest.</p>
+
+                        <div className="bg-[#120a06] border border-[#2d1e16] w-full rounded-xl p-6 mb-8">
+                            <div className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-2">Total Points Earned</div>
+                            <div className="text-5xl font-mono font-black text-green-500 tracking-tighter">
+                                {contestFinalPoints.toLocaleString()}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-3 flex items-center justify-center gap-1.5">
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                                Global Rank Updated
+                            </div>
+                        </div>
+
+                        <button
+                            onClick={() => navigate('/contests')}
+                            className="w-full py-4 bg-green-500 hover:bg-green-600 text-black font-black rounded-xl transition-all shadow-lg text-lg uppercase tracking-wider hover:scale-[1.02] active:scale-[0.98]"
+                        >
+                            Return to Contests View
+                        </button>
+                    </div>
                 </div>
             )}
 

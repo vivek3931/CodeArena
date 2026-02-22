@@ -1,6 +1,8 @@
 import express from 'express';
+import jwt from 'jsonwebtoken';
 import Contest from '../models/Contest.js';
 import Problem from '../models/Problem.js';
+import Submission from '../models/Submission.js';
 import { protect } from '../middleware/authMiddleware.js';
 
 const router = express.Router();
@@ -10,8 +12,32 @@ const router = express.Router();
 // @access  Public
 router.get('/', async (req, res) => {
     try {
-        const contests = await Contest.find().populate('companyId', 'name').sort({ startTime: 1 });
-        res.status(200).json(contests);
+        let userId = null;
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            try {
+                const token = req.headers.authorization.split(' ')[1];
+                const decoded = jwt.verify(token, process.env.JWT_SECRET);
+                userId = decoded.id;
+            } catch (err) {
+                // Ignore invalid tokens on a public route
+                console.log("Invalid token " , err);
+            }
+        }
+
+        const contests = await Contest.find()
+            .populate('companyId', 'name')
+            .populate('problems', 'title difficulty category')
+            .sort({ startTime: 1 });
+
+        const mappedContests = contests.map(c => {
+            const contestObj = c.toObject();
+            contestObj.isDisqualified = userId && c.disqualifiedParticipants
+                ? c.disqualifiedParticipants.some(id => id.toString() === userId)
+                : false;
+            return contestObj;
+        });
+
+        res.status(200).json(mappedContests);
     } catch (error) {
         res.status(500).json({ message: 'Server Error fetching contests' });
     }
@@ -102,6 +128,69 @@ router.post('/:id/register', protect, async (req, res) => {
         res.status(200).json({ message: 'Successfully registered for the contest!' });
     } catch (error) {
         res.status(500).json({ message: 'Server Error during registration' });
+    }
+});
+
+// @desc    Get user's progress in a contest (which problems are solved)
+// @route   GET /api/contests/:id/progress
+// @access  Private
+router.get('/:id/progress', protect, async (req, res) => {
+    try {
+        const contest = await Contest.findById(req.params.id);
+        if (!contest) return res.status(404).json({ message: 'Contest not found' });
+
+        // Get all accepted submissions by this user for problems in this contest
+        const acceptedSubs = await Submission.find({
+            user: req.user._id,
+            problem: { $in: contest.problems },
+            status: 'Accepted'
+        });
+
+        // Build set of solved problem IDs
+        const solvedProblemIds = [...new Set(acceptedSubs.map(s => s.problem.toString()))];
+
+        // currentProblemIndex = how many sequential problems are solved from the start
+        // e.g., if problems are [A, B, C, D] and user solved A and B, index = 2 (can access C)
+        let currentProblemIndex = 0;
+        for (let i = 0; i < contest.problems.length; i++) {
+            if (solvedProblemIds.includes(contest.problems[i].toString())) {
+                currentProblemIndex = i + 1;
+            } else {
+                break;
+            }
+        }
+
+        // Check if user is disqualified
+        const isDisqualified = contest.disqualifiedParticipants.includes(req.user._id);
+
+        res.status(200).json({
+            solvedProblemIds,
+            currentProblemIndex,
+            totalProblems: contest.problems.length,
+            isDisqualified
+        });
+    } catch (error) {
+        console.error('Progress fetch error:', error);
+        res.status(500).json({ message: 'Server Error fetching progress' });
+    }
+});
+
+// @desc    Disqualify a user from a contest (Anti-Cheat)
+// @route   POST /api/contests/:id/disqualify
+// @access  Private
+router.post('/:id/disqualify', protect, async (req, res) => {
+    try {
+        const contest = await Contest.findById(req.params.id);
+        if (!contest) return res.status(404).json({ message: 'Contest not found' });
+
+        if (!contest.disqualifiedParticipants.includes(req.user._id)) {
+            contest.disqualifiedParticipants.push(req.user._id);
+            await contest.save();
+        }
+
+        res.status(200).json({ message: 'User disqualified successfully' });
+    } catch (error) {
+        res.status(500).json({ message: 'Server Error during disqualification' });
     }
 });
 

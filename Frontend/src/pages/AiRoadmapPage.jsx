@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sparkles, ArrowRight, ArrowLeft, Loader2, RotateCcw, Target, Brain, Clock, Rocket, Code2, Trophy, Zap } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 
 const QUESTIONS = [
     {
@@ -41,11 +42,19 @@ const QUESTIONS = [
 ];
 
 const AiRoadmapPage = () => {
+    const navigate = useNavigate();
     const [step, setStep] = useState(0);
     const [answers, setAnswers] = useState({ goal: '', experience: '', timeCommitment: '' });
     const [roadmap, setRoadmap] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        const token = localStorage.getItem('token');
+        if (!token) {
+            navigate('/auth');
+        }
+    }, [navigate]);
 
     const currentQuestion = QUESTIONS[step];
     const isLastStep = step === QUESTIONS.length - 1;

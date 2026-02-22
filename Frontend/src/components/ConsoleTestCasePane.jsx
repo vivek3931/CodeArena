@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { CheckCircle2, TerminalSquare, ChevronDown, Play, CloudUpload, Plus, Loader2, Bot, ArrowDown, Expand, Minimize2 } from 'lucide-react';
+import { CheckCircle2, TerminalSquare, ChevronDown, Play, CloudUpload, Plus, Loader2, Bot, ArrowDown, Expand, Minimize2, ArrowRight, Trophy } from 'lucide-react';
 import { marked } from 'marked';
+import { useNavigate } from 'react-router-dom';
 
 const ConsoleTestCasePane = ({
     testCases = [], code, problemId, isLoading,
+    contestId, onFinishContest,
     wrongAttempts, setWrongAttempts, setShowHintOverlay,
     submissions, setSubmissions, setRequestTabChange, disabled,
     isMaximized, onMaximize
 }) => {
+    const navigate = useNavigate();
     const visibleCases = testCases || [];
     const [activeTab, setActiveTab] = useState(0);
     const [viewMode, setViewMode] = useState('TESTCASE'); // TESTCASE or CONSOLE
@@ -30,7 +33,11 @@ const ConsoleTestCasePane = ({
 
         try {
             const token = localStorage.getItem('token');
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/api/submissions/${problemId}`, {
+            const url = contestId
+                ? `${import.meta.env.VITE_API_URL}/api/submissions/${problemId}?contestId=${contestId}`
+                : `${import.meta.env.VITE_API_URL}/api/submissions/${problemId}`;
+
+            const res = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -209,6 +216,27 @@ const ConsoleTestCasePane = ({
                                     <span className="text-[var(--color-primary)] font-bold mb-2 block">AI Feedback:</span>
                                     {aiResult.message}
                                 </div>
+
+                                {/* Contest Navigation Flow */}
+                                {contestId && aiResult.status === 'Accepted' && (
+                                    <div className="mt-6 border-t border-[#333] pt-6 flex flex-col items-center">
+                                        {aiResult.nextProblemId ? (
+                                            <button
+                                                onClick={() => navigate(`/workspace/contest/${contestId}/${aiResult.nextProblemId}`)}
+                                                className="w-full sm:w-auto px-8 py-3 bg-[var(--color-primary)] hover:bg-[#e05a0d] text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(246,107,21,0.3)] animate-pulse hover:animate-none"
+                                            >
+                                                Next Question <ArrowRight size={18} />
+                                            </button>
+                                        ) : aiResult.isLastProblem ? (
+                                            <button
+                                                onClick={() => onFinishContest && onFinishContest(aiResult.contestTotalPoints)}
+                                                className="w-full sm:w-auto px-8 py-3 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-400 hover:to-emerald-500 text-white font-bold rounded-lg transition-all flex items-center justify-center gap-2 shadow-[0_0_20px_rgba(34,197,94,0.3)] animate-pulse hover:animate-none"
+                                            >
+                                                <Trophy size={18} /> Finish Contest
+                                            </button>
+                                        ) : null}
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

@@ -26,6 +26,7 @@ router.get('/', async (req, res) => {
                     wrongAnswers: {
                         $sum: { $cond: [{ $eq: ['$status', 'Wrong Answer'] }, 1, 0] }
                     },
+                    totalPoints: { $sum: '$points' },
                     lastActive: { $max: '$createdAt' }
                 }
             },
@@ -54,6 +55,7 @@ router.get('/', async (req, res) => {
                     email: '$userInfo.email',
                     location: '$userInfo.location',
                     rating: '$userInfo.rating',
+                    totalPoints: 1,
                     solved: 1,
                     totalAttempts: 1,
                     wrongAnswers: 1,
@@ -67,8 +69,8 @@ router.get('/', async (req, res) => {
                     }
                 }
             },
-            // Sort by solved DESC, then fewer attempts = better
-            { $sort: { solved: -1, totalAttempts: 1, lastActive: -1 } }
+            // Sort by rating (total points) DESC, then solved, then fewer attempts
+            { $sort: { rating: -1, solved: -1, totalAttempts: 1, lastActive: -1 } }
         ];
 
         // Apply search filter if provided

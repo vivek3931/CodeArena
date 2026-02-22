@@ -1,6 +1,8 @@
 import express from 'express';
 import Problem from '../models/Problem.js';
 import Submission from '../models/Submission.js';
+import User from '../models/User.js';
+import Contest from '../models/Contest.js';
 import Groq from 'groq-sdk';
 import { protect } from '../middleware/authMiddleware.js';
 
@@ -49,6 +51,45 @@ class AsyncQueue {
 
 // We globally allow 3 Groq evaluations to run in parallel.
 const evaluationQueue = new AsyncQueue(3);
+
+// ══════════════════════════════════════════════════════
+//  Badge Definitions & Award Logic (Server-Side Only)
+// ══════════════════════════════════════════════════════
+const BADGE_DEFINITIONS = [
+    { id: 'first_blood', name: 'First Blood', icon: '🩸', img: '/badges/first_blood.png', description: 'Solved your very first problem', condition: async (userId) => { const count = await Submission.countDocuments({ user: userId, status: 'Accepted' }); return count >= 1; } },
+    { id: 'easy_5', name: 'Warm Up', icon: '🔥', img: '/badges/warm_up.png', description: 'Solved 5 Easy problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }).populate('problem', 'difficulty'); const unique = new Set(); subs.forEach(s => { if (s.problem?.difficulty === 'Easy') unique.add(s.problem._id.toString()); }); return unique.size >= 5; } },
+    { id: 'medium_5', name: 'Rising Star', icon: '⭐', img: '/badges/rising_star.png', description: 'Solved 5 Medium problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }).populate('problem', 'difficulty'); const unique = new Set(); subs.forEach(s => { if (s.problem?.difficulty === 'Medium') unique.add(s.problem._id.toString()); }); return unique.size >= 5; } },
+    { id: 'hard_3', name: 'Hard Crusher', icon: '💎', img: '/badges/hard_crusher.png', description: 'Solved 3 Hard problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }).populate('problem', 'difficulty'); const unique = new Set(); subs.forEach(s => { if (s.problem?.difficulty === 'Hard') unique.add(s.problem._id.toString()); }); return unique.size >= 3; } },
+    { id: 'ten_solved', name: 'Dedicated', icon: '🎯', img: '/badges/dedicated.png', description: 'Solved 10 unique problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }); const unique = new Set(subs.map(s => s.problem.toString())); return unique.size >= 10; } },
+    { id: 'twenty_five_solved', name: 'Warrior', icon: '⚔️', img: '/badges/warrior.png', description: 'Solved 25 unique problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }); const unique = new Set(subs.map(s => s.problem.toString())); return unique.size >= 25; } },
+    { id: 'fifty_solved', name: 'Veteran', icon: '🏅', img: '/badges/veteran.png', description: 'Solved 50 unique problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }); const unique = new Set(subs.map(s => s.problem.toString())); return unique.size >= 50; } },
+    { id: 'century', name: 'Centurion', icon: '💯', img: '/badges/centurion.png', description: 'Solved 100 unique problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }); const unique = new Set(subs.map(s => s.problem.toString())); return unique.size >= 100; } },
+    { id: 'points_1000', name: 'Point Collector', icon: '🪙', img: '/badges/point_collector.png', description: 'Accumulated 1,000 rating points', condition: async (userId) => { const user = await User.findById(userId); return user.rating >= 1000; } },
+    { id: 'points_5000', name: 'Elite Coder', icon: '👑', img: '/badges/elite_coder.png', description: 'Accumulated 5,000 rating points', condition: async (userId) => { const user = await User.findById(userId); return user.rating >= 5000; } },
+    { id: 'points_10000', name: 'Grandmaster', icon: '🏆', img: '/badges/grandmaster.png', description: 'Accumulated 10,000 rating points', condition: async (userId) => { const user = await User.findById(userId); return user.rating >= 10000; } },
+    { id: 'hard_10', name: 'Beast Mode', icon: '🐉', img: '/badges/beast_mode.png', description: 'Solved 10 Hard problems', condition: async (userId) => { const subs = await Submission.find({ user: userId, status: 'Accepted' }).populate('problem', 'difficulty'); const unique = new Set(); subs.forEach(s => { if (s.problem?.difficulty === 'Hard') unique.add(s.problem._id.toString()); }); return unique.size >= 10; } },
+];
+
+async function checkAndAwardBadges(userId) {
+    const user = await User.findById(userId);
+    const existingBadgeIds = new Set(user.badges.map(b => b.id));
+    const newBadges = [];
+
+    for (const badge of BADGE_DEFINITIONS) {
+        if (existingBadgeIds.has(badge.id)) continue;
+        const earned = await badge.condition(userId);
+        if (earned) {
+            const awarded = { id: badge.id, name: badge.name, icon: badge.icon, img: badge.img, description: badge.description, earnedAt: new Date() };
+            newBadges.push(awarded);
+        }
+    }
+
+    if (newBadges.length > 0) {
+        await User.findByIdAndUpdate(userId, { $push: { badges: { $each: newBadges } } });
+    }
+
+    return newBadges;
+}
 
 // @desc    Evaluate code submission using Groq AI and track in DB
 // @route   POST /api/submissions/:problemId
@@ -126,6 +167,29 @@ Respond strictly with a JSON object in the following format. DO NOT wrap the JSO
         try {
             const parsedResponse = JSON.parse(aiResponse);
 
+            // ── Points Calculation ──
+            const POINTS_MAP = { 'Easy': 250, 'Medium': 400, 'Hard': 650 };
+            let earnedPoints = 0;
+
+            if (parsedResponse.status === 'Accepted') {
+                // Only award points if user hasn't already solved this problem
+                const alreadySolved = await Submission.findOne({
+                    user: req.user._id,
+                    problem: problemId,
+                    status: 'Accepted'
+                });
+
+                if (!alreadySolved) {
+                    earnedPoints = POINTS_MAP[problem.difficulty] || 0;
+                    // Atomically update user's global rating
+                    if (earnedPoints > 0) {
+                        await User.findByIdAndUpdate(req.user._id, {
+                            $inc: { rating: earnedPoints }
+                        });
+                    }
+                }
+            }
+
             // Save the submission record to the database
             const submission = new Submission({
                 user: req.user._id,
@@ -133,11 +197,62 @@ Respond strictly with a JSON object in the following format. DO NOT wrap the JSO
                 code: code,
                 language: parsedResponse.language || 'Auto-Inferred',
                 status: parsedResponse.status,
-                message: parsedResponse.message
+                message: parsedResponse.message,
+                points: earnedPoints
             });
             await submission.save();
 
-            return res.status(200).json(parsedResponse);
+            // ── Badge Checking (server-side only) ──
+            let newBadges = [];
+            if (parsedResponse.status === 'Accepted' && earnedPoints > 0) {
+                newBadges = await checkAndAwardBadges(req.user._id);
+            }
+
+            // ── Contest Tracking (if applicable) ──
+            const { contestId } = req.query;
+            let nextProblemId = null;
+            let isLastProblem = false;
+            let contestTotalPoints = 0;
+
+            if (contestId && parsedResponse.status === 'Accepted') {
+                const contest = await Contest.findById(contestId);
+                if (contest && contest.problems) {
+                    const probIndex = contest.problems.findIndex(p => p.toString() === problemId);
+                    if (probIndex !== -1) {
+                        if (probIndex < contest.problems.length - 1) {
+                            nextProblemId = contest.problems[probIndex + 1];
+                        } else {
+                            isLastProblem = true;
+                        }
+                    }
+
+                    // Calculate total points earned in this contest by the user
+                    const allAcceptedInContest = await Submission.find({
+                        user: req.user._id,
+                        problem: { $in: contest.problems },
+                        status: 'Accepted'
+                    });
+
+                    // Sum up max points for each unique problem solved (using set to avoid duplicate points)
+                    const uniqueSolvedIds = new Set(allAcceptedInContest.map(s => s.problem.toString()));
+                    contestTotalPoints = 0;
+                    contest.problems.forEach(pId => {
+                        if (uniqueSolvedIds.has(pId.toString())) {
+                            const p = allAcceptedInContest.find(s => s.problem.toString() === pId.toString());
+                            contestTotalPoints += p.points || 0;
+                        }
+                    });
+                }
+            }
+
+            return res.status(200).json({
+                ...parsedResponse,
+                points: earnedPoints,
+                newBadges,
+                nextProblemId,
+                isLastProblem,
+                contestTotalPoints
+            });
         } catch (parseError) {
             console.error("Failed to parse AI response:", aiResponse);
             return res.status(500).json({ status: 'Error', message: 'Failed to evaluate code properly.' });
