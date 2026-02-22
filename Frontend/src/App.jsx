@@ -13,6 +13,7 @@ import HomePage from './pages/HomePage';
 import SuperadminDashboard from './pages/SuperadminDashboard';
 import ContestArena from './pages/ContestArena';
 import AiRoadmapPage from './pages/AiRoadmapPage';
+import MockInterviewPage from './pages/MockInterviewPage';
 import HomepageFooter from './components/homepage/HomepageFooter';
 
 function AppContent() {
@@ -47,6 +48,7 @@ function AppContent() {
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/onboarding" element={<OnboardingPage />} />
             <Route path="/ai-roadmap" element={<AiRoadmapPage />} />
+            <Route path="/mock-interview" element={<MockInterviewPage />} />
           </Routes>
         </main>
         {!isWorkspace && (

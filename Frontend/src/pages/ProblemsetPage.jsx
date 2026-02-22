@@ -195,8 +195,8 @@ const ProblemsetPage = () => {
                 </div>
 
                 {/* Problem Table */}
-                <div className="bg-black/90 border border-osu/40 rounded-xl overflow-hidden shadow-2xl shadow-osu/10 hover:shadow-osu/20 transition-all duration-300">
-                    <table className="w-full text-left">
+                <div className="bg-black/90 border border-osu/40 rounded-xl overflow-x-auto shadow-2xl shadow-osu/10 hover:shadow-osu/20 transition-all duration-300">
+                    <table className="w-full text-left min-w-[700px]">
                         <thead className="text-xs text-gray-500 uppercase tracking-widest border-b border-[#2d1e16] bg-[#120a06]">
                             <tr>
                                 <th className="px-4 py-3.5 font-bold w-12 text-center">Status</th>

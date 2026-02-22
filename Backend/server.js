@@ -12,6 +12,7 @@ import hintRoutes from './routes/hint.js';
 import editorialRoutes from './routes/editorial.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import roadmapRoutes from './routes/roadmap.js';
+import mockInterviewRoutes from './routes/mockInterview.js';
 
 dotenv.config();
 
@@ -35,6 +36,7 @@ app.use('/api/hint', hintRoutes);
 app.use('/api/editorial', editorialRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
 app.use('/api/roadmap', roadmapRoutes);
+app.use('/api/interview', mockInterviewRoutes);
 
 const PORT = process.env.PORT || 5000;
 
