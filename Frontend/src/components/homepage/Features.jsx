@@ -380,7 +380,7 @@ export default function Features() {
                         {/* Code Editor */}
                         <FeatureCard className="lg:col-span-2 overflow-hidden">
                             <div className="pb-3 px-4 md:px-6 pt-6">
-                                <CardHeading icon={Code2} title="Code Editor" description="Powered by Monaco's Editor, CodeArena provides syntax highlighting and many themes." />
+                                <CardHeading icon={Code2} title="Code Editor" description="Powered by AI Compiler, Choice from Thousands of Programming languages of the world to code." />
                             </div>
                             <div className="relative border-t border-dashed border-white/10">
                                 <div className="p-3 px-4 bg-black/70">
@@ -439,7 +439,7 @@ export default function Features() {
                                     {
                                         icon: MessageCircle,
                                         title: "Mock Interviews",
-                                        desc: "Practice with peer-to-peer mock interviews and curate problem sets to get ready for your dream tech job.",
+                                        desc: "Practice with AI-powered mock interviews and get ready for your dream tech job.",
                                     },
                                 ].map((item) => (
                                     <div
@@ -511,7 +511,7 @@ export default function Features() {
                                 </div>
                                 <div className="shrink-0">
                                     <a
-                                        href="#"
+                                        href="/contests"
                                         className="inline-block border border-white/30 text-white font-medium px-6 py-3 rounded-lg hover:bg-white/5 transition-all text-sm"
                                     >
                                         Register Now
