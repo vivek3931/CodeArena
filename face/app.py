@@ -1,3 +1,4 @@
+import os
 import base64
 import cv2
 import math
@@ -149,9 +150,10 @@ def verify_face():
 
 
 if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 8000))
     print("══════════════════════════════════════════════════")
     print("  CodeArena Face Recognition Anti-Cheat API v2.1")
-    print("  HTTP: http://localhost:8000/verify-face")
+    print(f"  HTTP: http://localhost:{port}/verify-face")
     print("  Head Tilt + Yaw Detection: ACTIVE")
     print("══════════════════════════════════════════════════")
-    app.run(host='0.0.0.0', port=8000, debug=False)
+    app.run(host='0.0.0.0', port=port, debug=False)
